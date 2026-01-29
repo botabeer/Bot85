@@ -17,19 +17,23 @@ app = Flask(__name__)
 ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 SECRET = os.getenv("LINE_CHANNEL_SECRET")
 PORT = int(os.getenv("PORT", 5000))
-HEROKU_URL = os.getenv("HEROKU_URL", "")  # جديد
+HEROKU_URL = os.getenv("HEROKU_URL", "")
 
 configuration = Configuration(access_token=ACCESS_TOKEN)
 handler = WebhookHandler(SECRET)
 
 DATA_FILE = "data.json"
 CONTENT_FILE = "content.json"
+RAMADAN_FILE = "ramadan.json"
 
 # Lock لمنع مشاكل الكتابة المتزامنة
 data_lock = threading.Lock()
 
 # تخزين الروابط لكل مستخدم
 user_links = {}
+
+# تخزين الأدعية المستخدمة لكل مستخدم
+used_ramadan_duaa = {}
 
 # كلمات السلام المعتمدة
 SALAM_WORDS = [
@@ -60,7 +64,8 @@ def save_data():
                     "groups": list(target_groups),
                     "tasbih": tasbih_counts,
                     "last_reset": last_reset_dates,
-                    "notifications_off": list(notifications_off)
+                    "notifications_off": list(notifications_off),
+                    "used_ramadan_duaa": {k: list(v) for k, v in used_ramadan_duaa.items()}
                 }, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"خطأ في الحفظ: {e}")
@@ -71,16 +76,19 @@ data = load_json(DATA_FILE, {
     "groups": [], 
     "tasbih": {}, 
     "last_reset": {},
-    "notifications_off": []
+    "notifications_off": [],
+    "used_ramadan_duaa": {}
 })
 target_users = set(data.get("users", []))
 target_groups = set(data.get("groups", []))
 tasbih_counts = data.get("tasbih", {})
 last_reset_dates = data.get("last_reset", {})
 notifications_off = set(data.get("notifications_off", []))
+used_ramadan_duaa = {k: set(v) for k, v in data.get("used_ramadan_duaa", {}).items()}
 
 content = load_json(CONTENT_FILE, {"adhkar": []})
 fadl_content = load_json("fadl.json", {"fadl": []}).get("fadl", [])
+ramadan_duaa_list = load_json(RAMADAN_FILE, {"duaa": []}).get("duaa", [])
 
 TASBIH_LIMITS = 33
 TASBIH_KEYS = ["استغفر الله", "سبحان الله", "الحمد لله", "الله أكبر"]
@@ -100,6 +108,40 @@ def get_next_fadl():
     if not fadl_content:
         return "لا يوجد فضل متاح حاليا"
     return random.choice(fadl_content)
+
+def get_ramadan_duaa(user_id):
+    """الحصول على دعاء رمضان بدون تكرار"""
+    if not ramadan_duaa_list:
+        return "لا توجد أدعية متاحة حاليا"
+    
+    # إذا لم يكن للمستخدم قائمة، أنشئها
+    if user_id not in used_ramadan_duaa:
+        used_ramadan_duaa[user_id] = set()
+    
+    # إذا استخدم جميع الأدعية، أعد التصفير
+    if len(used_ramadan_duaa[user_id]) >= len(ramadan_duaa_list):
+        used_ramadan_duaa[user_id] = set()
+        message = "تم إتمام جميع الأدعية\nسنبدأ من جديد إن شاء الله\n\n"
+    else:
+        message = ""
+    
+    # احصل على الأدعية المتبقية
+    remaining_duaa = [d for i, d in enumerate(ramadan_duaa_list) if i not in used_ramadan_duaa[user_id]]
+    
+    # اختر دعاء عشوائي من المتبقية
+    selected_duaa = random.choice(remaining_duaa)
+    selected_index = ramadan_duaa_list.index(selected_duaa)
+    
+    # أضفه للقائمة المستخدمة
+    used_ramadan_duaa[user_id].add(selected_index)
+    
+    # احفظ البيانات
+    save_data()
+    
+    # أضف معلومات التقدم
+    progress = f"الدعاء ({len(used_ramadan_duaa[user_id])}/{len(ramadan_duaa_list)})\n\n"
+    
+    return message + progress + selected_duaa
 
 def send_message(target_id, text):
     """إرسال رسالة إلى مستخدم أو مجموعة"""
@@ -289,7 +331,7 @@ if AUTO_REMINDER_ENABLED:
 
 def is_valid_command(text):
     """التحقق من صحة الأمر"""
-    valid_commands = ["مساعدة", "فضل", "تسبيح", "ذكرني", "إعادة", "إيقاف", "تشغيل", "احصائيات"]
+    valid_commands = ["مساعدة", "فضل", "تسبيح", "ذكرني", "إعادة", "إيقاف", "تشغيل", "احصائيات", "رمضان"]
     txt = text.lower().strip()
     
     if txt in [c.lower() for c in valid_commands]:
@@ -361,6 +403,9 @@ def handle_message(event):
 فضل
 عرض فضل العبادات والأذكار
 
+رمضان
+عرض دعاء من أدعية رمضان
+
 تسبيح
 عرض حالة التسبيح الخاصة بك
 
@@ -377,9 +422,17 @@ def handle_message(event):
 - يتم تصفير العداد تلقائيا كل يوم
 - التذكير اليدوي (ذكرني): أذكار قصيرة
 - التذكير التلقائي: فضائل العبادات
+- أمر رمضان: يعرض دعاء جديد في كل مرة
 
 تم إنشاء هذا البوت بواسطة عبير الدوسري"""
             reply_message(event.reply_token, help_text)
+            return
+
+        # أمر رمضان
+        if text_lower == "رمضان":
+            duaa = get_ramadan_duaa(user_id)
+            reply_message(event.reply_token, duaa)
+            logger.info(f"تم إرسال دعاء رمضان للمستخدم: {user_id}")
             return
 
         # أمر إيقاف التذكير
@@ -446,6 +499,7 @@ def handle_message(event):
 التذكير التلقائي: {'مفعل' if AUTO_REMINDER_ENABLED else 'معطل'}
 Keep-Alive: {'مفعل' if HEROKU_URL else 'معطل'}
 فترة التذكير: {MIN_INTERVAL_HOURS}-{MAX_INTERVAL_HOURS} ساعة (أوقات متفرقة)
+أدعية رمضان: {len(ramadan_duaa_list)} دعاء
 
 تم إنشاء هذا البوت بواسطة عبير الدوسري"""
             reply_message(event.reply_token, stats_text)
@@ -509,12 +563,13 @@ def home():
         "status": "running",
         "bot": "بوت85",
         "creator": "عبير الدوسري",
-        "version": "2.2",
+        "version": "2.3",
         "users": len(target_users),
         "groups": len(target_groups),
         "notifications_disabled": len(notifications_off),
         "auto_reminder": AUTO_REMINDER_ENABLED,
-        "keep_alive": bool(HEROKU_URL)
+        "keep_alive": bool(HEROKU_URL),
+        "ramadan_duaa_count": len(ramadan_duaa_list)
     }), 200
 
 @app.route("/health", methods=["GET"])
@@ -562,7 +617,8 @@ def stats():
         "keep_alive_enabled": bool(HEROKU_URL),
         "reminder_interval": f"{MIN_INTERVAL_HOURS}-{MAX_INTERVAL_HOURS} hours",
         "adhkar_count": len(content.get("adhkar", [])),
-        "fadl_count": len(fadl_content)
+        "fadl_count": len(fadl_content),
+        "ramadan_duaa_count": len(ramadan_duaa_list)
     }), 200
 
 @app.route("/test_reminder", methods=["GET"])
@@ -595,10 +651,12 @@ if __name__ == "__main__":
     logger.info(f"التذكير موقف لـ: {len(notifications_off)}")
     logger.info(f"محتوى الأذكار: {len(content.get('adhkar', []))}")
     logger.info(f"محتوى الفضل: {len(fadl_content)}")
+    logger.info(f"أدعية رمضان: {len(ramadan_duaa_list)}")
     logger.info(f"التذكير التلقائي: {'مفعل' if AUTO_REMINDER_ENABLED else 'معطل'}")
     logger.info(f"Keep-Alive: {'مفعل ✓' if HEROKU_URL else 'معطل ✗'}")
     logger.info(f"فترة التذكير: {MIN_INTERVAL_HOURS}-{MAX_INTERVAL_HOURS} ساعة (أوقات متفرقة)")
     logger.info("مصدر التذكير اليدوي (ذكرني): content.json (أذكار)")
     logger.info("مصدر التذكير التلقائي: fadl.json (فضائل)")
+    logger.info("مصدر أمر رمضان: ramadan.json (أدعية رمضان)")
     logger.info("=" * 50)
     app.run(host="0.0.0.0", port=PORT)
