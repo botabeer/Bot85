@@ -138,10 +138,8 @@ def get_ramadan_duaa(user_id):
     # احفظ البيانات
     save_data()
     
-    # أضف معلومات التقدم
-    progress = f"الدعاء ({len(used_ramadan_duaa[user_id])}/{len(ramadan_duaa_list)})\n\n"
-    
-    return message + progress + selected_duaa
+    # فقط الدعاء بدون أي إضافات
+    return message + selected_duaa
 
 def send_message(target_id, text):
     """إرسال رسالة إلى مستخدم أو مجموعة"""
@@ -404,7 +402,7 @@ def handle_message(event):
 عرض فضل العبادات والأذكار
 
 رمضان
-عرض دعاء من أدعية رمضان
+عرض دعاء من أدعية رمضان (بدون تكرار)
 
 تسبيح
 عرض حالة التسبيح الخاصة بك
