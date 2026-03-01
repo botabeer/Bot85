@@ -121,7 +121,7 @@ def get_ramadan_duaa(user_id):
     # إذا استخدم جميع الأدعية، أعد التصفير
     if len(used_ramadan_duaa[user_id]) >= len(ramadan_duaa_list):
         used_ramadan_duaa[user_id] = set()
-        message = "تم إتمام جميع الأدعية\nسنبدأ من جديد إن شاء الله\n\n"
+        message = ""
     else:
         message = ""
     
