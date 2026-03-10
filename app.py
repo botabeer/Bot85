@@ -252,11 +252,11 @@ HELP_TEXT = (
     "مشترك ← تنضم لجلسة تسبيح مشترك\n"
     "إعادة ← تصفير عدادك\n\n"
     "الأذكار والأدعية\n"
-    "ذكرني ← يرسل ذكر أو دعاء\n"
+    "ذكرني ← يرسل ذكر أو دعاء لجميع القروبات\n"
     "فضل ← فضل من فضائل العبادات\n"
     "رمضان ← دعاء من أدعية رمضان\n\n"
     "إعدادات القروب\n"
-    "ضبط [رقم] ← تذكير كل كذا رسالة\n"
+    "ضبط [رقم] ← تذكير تلقائي بعد كل عدد رسائل\n"
     "ضبط 0 ← إيقاف التذكير التلقائي\n"
     "محتوى ذكرني ← تذكير من الأذكار\n"
     "محتوى فضل ← تذكير من الفضائل\n"
@@ -355,7 +355,7 @@ def handle_message(event):
             if num == 0:
                 reply_message(event.reply_token, "✓ تم إيقاف التذكير التلقائي لهذا القروب.")
             else:
-                reply_message(event.reply_token, f"✓ سيصل هذا القروب تذكير كل {num} رسالة.")
+                reply_message(event.reply_token, f"✓ سيصل هذا القروب تذكير بعد كل {num} رسائل.")
             return
 
         # تخصيص نوع المحتوى
@@ -369,7 +369,7 @@ def handle_message(event):
                 group_settings[gid] = {}
             group_settings[gid]["mode"] = mode
             save_data()
-            reply_message(event.reply_token, f"✓ نوع التذكير لهذا القروب: {mode}.")
+            reply_message(event.reply_token, f"✓ نوع التذكير التلقائي لهذا القروب: {mode}.")
             return
 
         # تسبيح فردي — عرض الحالة
@@ -391,7 +391,7 @@ def handle_message(event):
             if sid:
                 status_text, _ = shared_status_text(session, context_key)
                 reply_message(event.reply_token,
-                    "أنت في جلسة مشتركة بالفعل.\n\n" + status_text)
+                    "أنت مشارك في جلسة تسبيح مشترك.\n\n" + status_text)
                 return
             sid = f"{context_key}_{user_id}_{int(time.time())}"
             tasbih_sessions[sid] = {
@@ -421,7 +421,7 @@ def handle_message(event):
             if sid:
                 status_text, _ = shared_status_text(session, context_key)
                 reply_message(event.reply_token,
-                    "أنت في جلسة مشتركة بالفعل.\n\n" + status_text)
+                    "أنت مشارك في جلسة تسبيح مشترك.\n\n" + status_text)
                 return
             open_sid, open_session = find_open_session(context_key, user_id)
             if open_sid:
