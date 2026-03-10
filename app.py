@@ -41,6 +41,9 @@ VALID_COMMANDS = {
     "محتوى ذكرني", "محتوى فضل", "محتوى الكل"
 } | HELP_WORDS
 
+# اسم البوت كما يظهر في LINE — يُستخدم للكشف عن المنشن
+BOT_NAME = os.getenv("BOT_NAME", "ذكرني")
+
 TASBIH_LIMITS = 33
 TASBIH_KEYS   = ["استغفر الله", "سبحان الله", "الحمد لله", "الله أكبر"]
 
@@ -289,6 +292,11 @@ def handle_message(event):
             if user_id not in target_users:
                 target_users.add(user_id)
                 save_data()
+
+        # كشف المنشن — لو منشن البوت يرد بقائمة المساعدة
+        if gid and f"@{BOT_NAME}" in user_text:
+            reply_message(event.reply_token, HELP_TEXT)
+            return
 
         # عداد الرسائل — يرسل ذكر أو فضل حسب إعدادات القروب
         if gid:
