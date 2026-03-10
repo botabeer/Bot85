@@ -334,7 +334,7 @@ def handle_message(event):
             save_data()
             u_name = get_name(user_id, gid)
             msg = (
-                f"{u_name} بدأ جلسة تسبيح مشترك.\n\n"
+                f"بدأ {u_name} جلسة تسبيح مشترك.\n\n"
                 "من يريد الانضمام يكتب: مشترك\n\n"
                 "اكتب أي ذكر للبدء:\n"
                 "استغفر الله  |  سبحان الله\n"
@@ -360,7 +360,7 @@ def handle_message(event):
                 save_data()
                 names = [get_name(uid, gid) for uid in open_session["members"]]
                 msg = (
-                    f"{get_name(user_id, gid)} انضم للتسبيح المشترك.\n\n"
+                    f"انضم {get_name(user_id, gid)} للتسبيح المشترك.\n\n"
                     "المشاركون: " + "، ".join(names) + "\n\n"
                     "اكتب أي ذكر للبدء:\n"
                     "استغفر الله  |  سبحان الله\n"
@@ -379,7 +379,7 @@ def handle_message(event):
                 save_data()
                 u_name = get_name(user_id, gid)
                 msg = (
-                    f"{u_name} بدأ جلسة تسبيح مشترك.\n\n"
+                    f"بدأ {u_name} جلسة تسبيح مشترك.\n\n"
                     "من يريد الانضمام يكتب: مشترك\n\n"
                     "اكتب أي ذكر للبدء:\n"
                     "استغفر الله  |  سبحان الله\n"
